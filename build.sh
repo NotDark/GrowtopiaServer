@@ -1,0 +1,8 @@
+sudo apt-get install build-essential
+cd "enet server test"
+cd "enet2"
+cmake CMakeLists.txt
+make
+cp libenet.a ../libenet.a
+cd ..
+g++ -o "enet server test" "enet server test.cpp" -std=c++11 -L. -lenet -iquote.

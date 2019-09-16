@@ -183,7 +183,7 @@ char *crypt_r(const char *key, const char *setting, void *data)
 		setting, (char *)data, CRYPT_OUTPUT_SIZE);
 }
 
-char *crypt(const char *key, const char *setting)
+char *crypt(const char *key, const char *setting) throw()
 {
 	static char output[CRYPT_OUTPUT_SIZE];
 
