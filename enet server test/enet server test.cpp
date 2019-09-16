@@ -1619,19 +1619,26 @@ void SendPacketRaw(int a1, void *packetData, size_t packetDataSize, void *a4, EN
 			if (world->items[x + (y*world->width)].background == 6864 && world->items[x + (y*world->width)].foreground == 0) return;
 			if (world->items[x + (y*world->width)].background == 0 && world->items[x + (y*world->width)].foreground == 0) return;
 			//data.netID = -1;
+			int tool = ((PlayerInfo*)(peer->data))->cloth_hand;
 			data.packetType = 0x8;
-			data.plantingTree = 4;
+			data.plantingTree = (tool == 98 || tool == 1438 || tool == 4956) ? 8 : 6;
 			using namespace std::chrono;
+			int block = world->items[x + (y*world->width)].foreground > 0 ? world->items[x + (y*world->width)].foreground : world->items[x + (y*world->width)].background;
 			//if (world->items[x + (y*world->width)].foreground == 0) return;
 			if ((duration_cast<milliseconds>(system_clock::now().time_since_epoch())).count() - world->items[x + (y*world->width)].breakTime >= 4000)
 			{
 				world->items[x + (y*world->width)].breakTime = (duration_cast<milliseconds>(system_clock::now().time_since_epoch())).count();
-				world->items[x + (y*world->width)].breakLevel = 4; // TODO
+				world->items[x + (y*world->width)].breakLevel = 0; // TODO
 				if (world->items[x + (y*world->width)].foreground == 758)
 					sendRoulete(peer, x, y);
 			}
-			else
-				if (y < world->height && world->items[x + (y*world->width)].breakLevel + 4 >= def.breakHits * 4) { // TODO
+			else {
+				if (y < world->height)
+				{
+					world->items[x + (y*world->width)].breakTime = (duration_cast<milliseconds>(system_clock::now().time_since_epoch())).count();
+					world->items[x + (y*world->width)].breakLevel += (int)((tool == 98 || tool == 1438 || tool == 4956) ? 4 : 3); // TODO
+				}
+				if (y < world->height && world->items[x + (y*world->width)].breakLevel >= def.breakHits * 3) { // TODO
 					data.packetType = 0x3;// 0xC; // 0xF // World::HandlePacketTileChangeRequest
 					data.netID = -1;
 					data.plantingTree = 0;
@@ -1659,7 +1666,7 @@ void SendPacketRaw(int a1, void *packetData, size_t packetDataSize, void *a4, EN
 						if (world->items[x + (y*world->width)].foreground == 758)
 							sendRoulete(peer, x, y);
 					}
-
+			}
 		}
 		else {
 			for (int i = 0; i < ((PlayerInfo*)(peer->data))->inventory.items.size(); i++)
