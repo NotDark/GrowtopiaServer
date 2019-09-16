@@ -1658,14 +1658,6 @@ void SendPacketRaw(int a1, void *packetData, size_t packetDataSize, void *a4, EN
 					}
 					
 				}
-				else
-					if (y < world->height)
-					{
-						world->items[x + (y*world->width)].breakTime = (duration_cast<milliseconds>(system_clock::now().time_since_epoch())).count();
-						world->items[x + (y*world->width)].breakLevel += 4; // TODO
-						if (world->items[x + (y*world->width)].foreground == 758)
-							sendRoulete(peer, x, y);
-					}
 			}
 		}
 		else {
