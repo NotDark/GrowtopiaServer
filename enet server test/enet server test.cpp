@@ -1638,7 +1638,17 @@ void SendPacketRaw(int a1, void *packetData, size_t packetDataSize, void *a4, EN
 					world->items[x + (y*world->width)].breakTime = (duration_cast<milliseconds>(system_clock::now().time_since_epoch())).count();
 					world->items[x + (y*world->width)].breakLevel += (int)((tool == 98 || tool == 1438 || tool == 4956) ? 4 : 3); // TODO
 				}
-				if (y < world->height && world->items[x + (y*world->width)].breakLevel >= def.breakHits * 3) { // TODO
+
+				ItemDefinition blockdef;
+				try {
+					blockdef = getItemDef(block);
+				}
+				catch (int e) {
+					blockdef.breakHits = 3;
+					blockdef.blockType = BlockTypes::FOREGROUND;
+
+				}
+				if (y < world->height && world->items[x + (y*world->width)].breakLevel >= blockdef.breakHits * 3) { // TODO
 					data.packetType = 0x3;// 0xC; // 0xF // World::HandlePacketTileChangeRequest
 					data.netID = -1;
 					data.plantingTree = 0;
