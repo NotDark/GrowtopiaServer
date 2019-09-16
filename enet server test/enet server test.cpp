@@ -3752,7 +3752,7 @@ label|Download Latest Version
 							catch (int e) {
 								goto END_CLOTHSETTER_FORCE;
 							}
-							
+							cout << "cloth_setter: " << def.clothType << "," << pMov->plantingTree << endl;
 							switch (def.clothType) {
 							case 0:
 								if (((PlayerInfo*)(event.peer->data))->cloth0 == pMov->plantingTree)
