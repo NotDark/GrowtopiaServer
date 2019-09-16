@@ -3741,6 +3741,7 @@ label|Download Latest Version
 							sendWorldOffers(peer);
 							// lets take item
 						}
+						cout << data2->packetType << endl;
 						if (data2->packetType == 10)
 						{
 							//cout << pMov->x << ";" << pMov->y << ";" << pMov->plantingTree << ";" << pMov->punchX << ";" << pMov->punchY << ";" << pMov->characterState << endl;
