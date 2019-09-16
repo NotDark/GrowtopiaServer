@@ -1111,6 +1111,7 @@ void buildItemsDatabase()
 			def.breakHits = atoi(ex[7].c_str());
 			def.growTime = atoi(ex[8].c_str());
 			string cl = ex[9];
+			if(def.id == 36)cout << cl << endl;
 			if (cl == "None") {
 				def.clothType = ClothTypes::NONE;
 			}
