@@ -94,6 +94,11 @@ ulong _byteswap_ulong(ulong x)
 }
 #endif
 
+//configs
+int configPort = 17091;
+string configCDN = "0098/CDNContent37/cache/";
+
+
 /***bcrypt***/
 
 bool verifyPassword(string password, string hash) {
@@ -540,6 +545,21 @@ int getState(PlayerInfo* info) {
 	val |= info->noBody << 5;
 	val |= info->devilHorns << 6;
 	val |= info->goldenHalo << 7;
+	val |= info->isFrozen << 11;
+	val |= info->isCursed << 12;
+	val |= info->isDuctaped << 13;
+	val |= info->haveCigar << 14;
+	val |= info->isShining << 15;
+	val |= info->isZombie << 16;
+	val |= info->isHitByLava << 17;
+	val |= info->haveHauntedShadows << 18;
+	val |= info->haveGeigerRadiation << 19;
+	val |= info->haveReflector << 20;
+	val |= info->isEgged << 21;
+	val |= info->havePineappleFloag << 22;
+	val |= info->haveFlyingPineapple << 23;
+	val |= info->haveSuperSupporterName << 24;
+	val |= info->haveSupperPineapple << 25;
 	return val;
 }
 
@@ -615,6 +635,12 @@ string PlayerDB::getProperName(string name) {
 	}
 	string ret2;
 	for (char c : ret) if ((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9')) ret2 += c;
+	
+	string username = ret2;
+	if (username == "prn" || username == "con" || username == "aux" || username == "nul" || username == "com1" || username == "com2" || username == "com3" || username == "com4" || username == "com5" || username == "com6" || username == "com7" || username == "com8" || username == "com9" || username == "lpt1" || username == "lpt2" || username == "lpt3" || username == "lpt4" || username == "lpt5" || username == "lpt6" || username == "lpt7" || username == "lpt8" || username == "lpt9") {
+		return "";
+	}
+	
 	return ret2;
 }
 
@@ -1111,7 +1137,8 @@ void buildItemsDatabase()
 			def.breakHits = atoi(ex[7].c_str());
 			def.growTime = atoi(ex[8].c_str());
 			string cl = ex[9];
-			if(def.id == 36)cout << cl << endl;
+			
+			#ifdef _WIN32
 			if (cl == "None") {
 				def.clothType = ClothTypes::NONE;
 			}
@@ -1145,6 +1172,43 @@ void buildItemsDatabase()
 			else {
 				def.clothType = ClothTypes::NONE;
 			}
+			#else
+			if (cl.find("None") != string::npos) {
+				def.clothType = ClothTypes::NONE;
+			}
+			else if(cl.find("Hat") != string::npos) {
+				def.clothType = ClothTypes::HAIR;
+			}
+			else if(cl.find("Shirt") != string::npos) {
+				def.clothType = ClothTypes::SHIRT;
+			}
+			else if(cl.find("Pants") != string::npos) {
+				def.clothType = ClothTypes::PANTS;
+			}
+			else if (cl.find("Feet") != string::npos) {
+				def.clothType = ClothTypes::FEET;
+			}
+			else if (cl.find("Face") != string::npos) {
+				def.clothType = ClothTypes::FACE;
+			}
+			else if (cl.find("Hand") != string::npos) {
+				def.clothType = ClothTypes::HAND;
+			}
+			else if (cl.find("Back") != string::npos) {
+				def.clothType = ClothTypes::BACK;
+			}
+			else if (cl.find("Hair") != string::npos) {
+				def.clothType = ClothTypes::MASK;
+			}
+			else if (cl.find("Chest") != string::npos) {
+				def.clothType = ClothTypes::NECKLACE;
+			}
+			else {
+				def.clothType = ClothTypes::NONE;
+			}
+			#endif
+			
+			
 			
 			if (++current != def.id)
 			{
@@ -1623,9 +1687,9 @@ void SendPacketRaw(int a1, void *packetData, size_t packetDataSize, void *a4, EN
 			int tool = ((PlayerInfo*)(peer->data))->cloth_hand;
 			data.packetType = 0x8;
 			data.plantingTree = (tool == 98 || tool == 1438 || tool == 4956) ? 8 : 6;
-			using namespace std::chrono;
 			int block = world->items[x + (y*world->width)].foreground > 0 ? world->items[x + (y*world->width)].foreground : world->items[x + (y*world->width)].background;
 			//if (world->items[x + (y*world->width)].foreground == 0) return;
+			using namespace std::chrono;
 			if ((duration_cast<milliseconds>(system_clock::now().time_since_epoch())).count() - world->items[x + (y*world->width)].breakTime >= 4000)
 			{
 				world->items[x + (y*world->width)].breakTime = (duration_cast<milliseconds>(system_clock::now().time_since_epoch())).count();
@@ -1633,23 +1697,16 @@ void SendPacketRaw(int a1, void *packetData, size_t packetDataSize, void *a4, EN
 				if (world->items[x + (y*world->width)].foreground == 758)
 					sendRoulete(peer, x, y);
 			}
-			/*else*/ {
+			else {
+
 				if (y < world->height)
 				{
 					world->items[x + (y*world->width)].breakTime = (duration_cast<milliseconds>(system_clock::now().time_since_epoch())).count();
-					world->items[x + (y*world->width)].breakLevel += (int)((tool == 98 || tool == 1438 || tool == 4956) ? 4 : 3); // TODO
+					world->items[x + (y*world->width)].breakLevel += (int)((tool == 98 || tool == 1438 || tool == 4956) ? 8 : 6); // TODO
 				}
 
-				ItemDefinition blockdef;
-				try {
-					blockdef = getItemDef(block);
-				}
-				catch (int e) {
-					blockdef.breakHits = 3;
-					blockdef.blockType = BlockTypes::FOREGROUND;
 
-				}
-				if (y < world->height && world->items[x + (y*world->width)].breakLevel >= blockdef.breakHits * 3) { // TODO
+				if (y < world->height && world->items[x + (y*world->width)].breakLevel >= getItemDef(block).breakHits * 6) { // TODO
 					data.packetType = 0x3;// 0xC; // 0xF // World::HandlePacketTileChangeRequest
 					data.netID = -1;
 					data.plantingTree = 0;
@@ -1667,9 +1724,11 @@ void SendPacketRaw(int a1, void *packetData, size_t packetDataSize, void *a4, EN
 						data.plantingTree = 6864;
 						world->items[x + (y*world->width)].background = 6864;
 					}
-					
+
 				}
 			}
+				
+
 		}
 		else {
 			for (int i = 0; i < ((PlayerInfo*)(peer->data))->inventory.items.size(); i++)
@@ -1791,7 +1850,7 @@ void SendPacketRaw(int a1, void *packetData, size_t packetDataSize, void *a4, EN
 				name = ((PlayerInfo*)(currentPeer->data))->displayName;
 
 		}
-		GamePacket p = packetEnd(appendString(appendString(createPacket(), "OnConsoleMessage"), "`o<`w" + name + "`o> " + message));
+		GamePacket p = packetEnd(appendString(appendString(createPacket(), "OnConsoleMessage"), "CP:0_PL:4_OID:_CT:[W]_ `o<`w" + name + "`o> " + message));
 		GamePacket p2 = packetEnd(appendIntx(appendString(appendIntx(appendString(createPacket(), "OnTalkBubble"), netID), message), 0));
 		for (currentPeer = server->peers;
 			currentPeer < &server->peers[server->peerCount];
@@ -2157,6 +2216,34 @@ unsigned char* getA(string fileName, int* pSizeOut, bool bAddBasePath, bool bAut
 	return pData;
 }
 
+void loadConfig() {
+	/*inside config.json:
+	{
+	"port": 17091,
+	"cdn": "0098/CDNContent37/cache/"
+	}
+	*/
+	
+	
+	std::ifstream ifs("config.json");
+	if (ifs.is_open()) {
+		json j;
+		ifs >> j;
+		ifs.close();
+		try {
+			configPort = j["port"].get<int>();
+			configCDN = j["cdn"].get<string>();
+			
+			cout << "Config loaded." << endl;
+		} catch (...) {
+			cout << "Invalid config." << endl;
+		}
+	} else {
+		cout << "Config not found." << endl;
+	}
+}
+
+
 	/*
 	action|log
 msg|`4UPDATE REQUIRED!`` : The `$V2.981`` update is now available for your device.  Go get it!  You'll need to install it before you can play online.
@@ -2172,6 +2259,10 @@ label|Download Latest Version
 #endif
 {
 	cout << "Growtopia private server (c) Growtopia Noobs" << endl;
+		
+	cout << "Loading config from config.json" << endl;
+	loadConfig();
+		
 	enet_initialize();
 	//Unnecessary save at exit. Commented out to make the program exit slightly quicker.
 	/*if (atexit(saveAllWorlds)) {
@@ -2237,7 +2328,7 @@ label|Download Latest Version
 	enet_address_set_host (&address, "0.0.0.0");
 	//address.host = ENET_HOST_ANY;
 	/* Bind the server to port 1234. */
-	address.port = 17091;
+	address.port = configPort;
 	server = enet_host_create(&address /* the address to bind the server host to */,
 		1024      /* allow up to 32 clients and/or outgoing connections */,
 		10      /* allow up to 2 channels to be used, 0 and 1 */,
@@ -2361,9 +2452,19 @@ label|Download Latest Version
 				string cch = GetTextPointerFromPacket(event.packet);
 				string str = cch.substr(cch.find("text|") + 5, cch.length() - cch.find("text|") - 1);
 				if (cch.find("action|wrench") == 0) {
-					vector<string> ex = explode("|", cch);
-					int id = stoi(ex[3]);
+					std::stringstream ss(cch);
+					std::string to;
+					int id = -1;
+					while (std::getline(ss, to, '\n')) {
+						vector<string> infoDat = explode("|", to);
+						if(infoDat.size() < 3) continue;
+						if (infoDat[1] == "netid") {
+							id = atoi(infoDat[2].c_str());
+						}
 
+					}
+					if (id < 0) continue; //not found
+ 
 					ENetPeer * currentPeer;
 					for (currentPeer = server->peers;
 						currentPeer < &server->peers[server->peerCount];
@@ -2802,7 +2903,7 @@ label|Download Latest Version
 						}
 					}
 					else if (str == "/help"){
-						GamePacket p = packetEnd(appendString(appendString(createPacket(), "OnConsoleMessage"), "Supported commands are: /mods, /ducttape, /help, /mod, /unmod, /inventory, /item id, /team id, /color number, /who, /state number, /count, /sb message, /alt, /radio, /gem, /jsb, /find itemname, /unequip, /weather id, /nick nickname"));
+						GamePacket p = packetEnd(appendString(appendString(createPacket(), "OnConsoleMessage"), "Supported commands are: /mods, /ducttape, /help, /mod, /unmod, /inventory, /item id, /team id, /color number, /who, /state number, /count, /sb message, /alt, /radio, /gem, /jsb, /find itemname, /unequip, /weather id, /nick nickname, /flag id"));
 						ENetPacket * packet = enet_packet_create(p.data,
 							p.len,
 							ENET_PACKET_FLAG_RELIABLE);
@@ -2844,6 +2945,28 @@ label|Download Latest Version
 						continue;
 
 
+						}
+					else if (str.substr(0, 6) == "/flag ") {
+						int lol = atoi(str.substr(6).c_str());
+			
+						GamePacket p2 = packetEnd(appendIntx(appendIntx(appendIntx(appendIntx(appendString(createPacket(), "OnGuildDataChanged"), 1), 2), lol), 3));
+						memcpy(p2.data + 8, &(((PlayerInfo*)(peer->data))->netID), 4);
+						ENetPacket * packet3 = enet_packet_create(p2.data,
+							p2.len,
+							ENET_PACKET_FLAG_RELIABLE);
+						ENetPeer * currentPeer;
+						for (currentPeer = server->peers;
+							currentPeer < &server->peers[server->peerCount];
+							++currentPeer)
+						{
+							if (currentPeer->state != ENET_PEER_STATE_CONNECTED)
+								continue;
+							if (isHere(peer, currentPeer))
+							{
+								enet_peer_send(currentPeer, 0, packet3);
+							}
+						}
+						delete p2.data;
 						}
 					else if (str.substr(0, 9) == "/weather ") {
 							if (world->name != "ADMIN") {
@@ -2979,7 +3102,7 @@ label|Download Latest Version
 						}
 
 						string name = ((PlayerInfo*)(peer->data))->displayName;
-						GamePacket p = packetEnd(appendString(appendString(createPacket(), "OnConsoleMessage"), "`w** `5Super-Broadcast`` from `$`2" + name + "```` (in `$" + ((PlayerInfo*)(peer->data))->currentWorld + "``) ** :`` `# " + str.substr(4, cch.length() - 4 - 1)));
+						GamePacket p = packetEnd(appendString(appendString(createPacket(), "OnConsoleMessage"), "CP:0_PL:4_OID:_CT:[SB]_ `w** `5Super-Broadcast`` from `$`2" + name + "```` (in `$" + ((PlayerInfo*)(peer->data))->currentWorld + "``) ** :`` `# " + str.substr(4, cch.length() - 4 - 1)));
 						string text = "action|play_sfx\nfile|audio/beep.wav\ndelayMS|0\n";
 						BYTE* data = new BYTE[5 + text.length()];
 						BYTE zero = 0;
@@ -3319,7 +3442,7 @@ label|Download Latest Version
 					if (itemdathash == 0) {
 						enet_peer_disconnect_later(peer, 0);
 					}
-					GamePacket p = packetEnd(appendString(appendString(appendString(appendString(appendInt(appendString(createPacket(), "OnSuperMainStartAcceptLogonHrdxs47254722215a"), itemdathash), "ubistatic-a.akamaihd.net"), "0098/CDNContent3/cache/"), "cc.cz.madkite.freedom org.aqua.gg idv.aqua.bulldog com.cih.gamecih2 com.cih.gamecih com.cih.game_cih cn.maocai.gamekiller com.gmd.speedtime org.dax.attack com.x0.strai.frep com.x0.strai.free org.cheatengine.cegui org.sbtools.gamehack com.skgames.traffikrider org.sbtoods.gamehaca com.skype.ralder org.cheatengine.cegui.xx.multi1458919170111 com.prohiro.macro me.autotouch.autotouch com.cygery.repetitouch.free com.cygery.repetitouch.pro com.proziro.zacro com.slash.gamebuster"), "proto=42|choosemusic=audio/mp3/about_theme.mp3|active_holiday=0|"));
+					GamePacket p = packetEnd(appendString(appendString(appendString(appendString(appendInt(appendString(createPacket(), "OnSuperMainStartAcceptLogonHrdxs47254722215a"), itemdathash), "ubistatic-a.akamaihd.net"), configCDN), "cc.cz.madkite.freedom org.aqua.gg idv.aqua.bulldog com.cih.gamecih2 com.cih.gamecih com.cih.game_cih cn.maocai.gamekiller com.gmd.speedtime org.dax.attack com.x0.strai.frep com.x0.strai.free org.cheatengine.cegui org.sbtools.gamehack com.skgames.traffikrider org.sbtoods.gamehaca com.skype.ralder org.cheatengine.cegui.xx.multi1458919170111 com.prohiro.macro me.autotouch.autotouch com.cygery.repetitouch.free com.cygery.repetitouch.pro com.proziro.zacro com.slash.gamebuster"), "proto=84|choosemusic=audio/mp3/tsirhc.mp3|active_holiday=9|server_tick=203930170|clash_active=0|drop_lavacheck_faster=1|isPayingUser=0|"));
 					//for (int i = 0; i < p.len; i++) cout << (int)*(p.data + i) << " ";
 					ENetPacket * packet = enet_packet_create(p.data,
 						p.len,
@@ -3510,93 +3633,104 @@ label|Download Latest Version
 						cout << "Entering some world..." << endl;
 #endif
 						try {
-							WorldInfo info = worldDB.get(act);
-							sendWorld(peer, &info);
-							/*string asdf = "0400000004A7379237BB2509E8E0EC04F8720B050000000000000000FBBB0000010000007D920100FDFDFDFD04000000040000000000000000000000070000000000"; // 0400000004A7379237BB2509E8E0EC04F8720B050000000000000000FBBB0000010000007D920100FDFDFDFD04000000040000000000000000000000080000000000000000000000000000000000000000000000000000000000000048133A0500000000BEBB0000070000000000
-							string worldName = "TEST";
-							int xSize=100;
-							int ySize=60;
-							int square = xSize*ySize;
-							__int16 nameLen = worldName.length();
-							int payloadLen = asdf.length() / 2;
-							int dataLen = payloadLen + 2 + nameLen + 12 + (square * 8)+4;
-							BYTE* data = new BYTE[dataLen];
-							for (int i = 0; i < asdf.length(); i += 2)
-							{
-							char x = ch2n(asdf[i]);
-							x = x << 4;
-							x += ch2n(asdf[i + 1]);
-							memcpy(data + (i / 2), &x, 1);
-							}
-							int zero = 0;
-							__int16 item = 0;
-							int smth = 0;
-							for (int i = 0; i < square * 8; i += 4) memcpy(data + payloadLen + i + 14 + nameLen, &zero, 4);
-							for (int i = 0; i < square * 8; i += 8) memcpy(data + payloadLen + i + 14 + nameLen, &item, 2);
-							memcpy(data + payloadLen, &nameLen, 2);
-							memcpy(data + payloadLen + 2, worldName.c_str(), nameLen);
-							memcpy(data + payloadLen + 2 + nameLen, &xSize, 4);
-							memcpy(data + payloadLen + 6 + nameLen, &ySize, 4);
-							memcpy(data + payloadLen + 10 + nameLen, &square, 4);
-							for (int i = 0; i < 1700; i++) {
-							__int16 bed = 100;
-							memcpy(data + payloadLen + (i * 8) + 14 + nameLen + (8 * 100 * 37), &bed, 2);
-							}
-							for (int i = 0; i < 600; i++) {
-							__int16 bed = 8;
-							memcpy(data + payloadLen + (i*8) + 14 + nameLen + (8*100*54), &bed, 2);
-							}
-							memcpy(data + dataLen-4, &smth, 4);
-							ENetPacket * packet2 = enet_packet_create(data,
-							dataLen,
-							ENET_PACKET_FLAG_RELIABLE);
-							enet_peer_send(peer, 0, packet2);
-							enet_host_flush(server);*/
-
-							int x = 3040;
-							int y = 736;
-
-							for (int j = 0; j < info.width*info.height; j++)
-							{
-								if (info.items[j].foreground == 6) {
-									x = (j%info.width) * 32;
-									y = (j / info.width) * 32;
+							if (act.length() > 30) {
+								sendConsoleMsg(peer, "`4Sorry, but world names with more than 30 characters are not allowed!");
+								((PlayerInfo*)(peer->data))->currentWorld = "EXIT";
+								GamePacket p2 = packetEnd(appendIntx(appendString(createPacket(), "OnFailedToEnterWorld"), 1));
+								ENetPacket* packet2 = enet_packet_create(p2.data,
+									p2.len,
+									ENET_PACKET_FLAG_RELIABLE);
+								enet_peer_send(peer, 0, packet2);
+								delete p2.data;
+							} else {
+								WorldInfo info = worldDB.get(act);
+								sendWorld(peer, &info);
+								/*string asdf = "0400000004A7379237BB2509E8E0EC04F8720B050000000000000000FBBB0000010000007D920100FDFDFDFD04000000040000000000000000000000070000000000"; // 0400000004A7379237BB2509E8E0EC04F8720B050000000000000000FBBB0000010000007D920100FDFDFDFD04000000040000000000000000000000080000000000000000000000000000000000000000000000000000000000000048133A0500000000BEBB0000070000000000
+								string worldName = "TEST";
+								int xSize=100;
+								int ySize=60;
+								int square = xSize*ySize;
+								__int16 nameLen = worldName.length();
+								int payloadLen = asdf.length() / 2;
+								int dataLen = payloadLen + 2 + nameLen + 12 + (square * 8)+4;
+								BYTE* data = new BYTE[dataLen];
+								for (int i = 0; i < asdf.length(); i += 2)
+								{
+								char x = ch2n(asdf[i]);
+								x = x << 4;
+								x += ch2n(asdf[i + 1]);
+								memcpy(data + (i / 2), &x, 1);
 								}
-							}
-							GamePacket p = packetEnd(appendString(appendString(createPacket(), "OnSpawn"), "spawn|avatar\nnetID|" + std::to_string(cId) + "\nuserID|" + std::to_string(cId) + "\ncolrect|0|0|20|30\nposXY|" + std::to_string(x) + "|" + std::to_string(y) + "\nname|``" + ((PlayerInfo*)(event.peer->data))->displayName + "``\ncountry|" + ((PlayerInfo*)(event.peer->data))->country + "\ninvis|0\nmstate|0\nsmstate|0\ntype|local\n"));
-							//for (int i = 0; i < p.len; i++) cout << (int)*(p.data + i) << " ";
-							ENetPacket * packet = enet_packet_create(p.data,
-								p.len,
+								int zero = 0;
+								__int16 item = 0;
+								int smth = 0;
+								for (int i = 0; i < square * 8; i += 4) memcpy(data + payloadLen + i + 14 + nameLen, &zero, 4);
+								for (int i = 0; i < square * 8; i += 8) memcpy(data + payloadLen + i + 14 + nameLen, &item, 2);
+								memcpy(data + payloadLen, &nameLen, 2);
+								memcpy(data + payloadLen + 2, worldName.c_str(), nameLen);
+								memcpy(data + payloadLen + 2 + nameLen, &xSize, 4);
+								memcpy(data + payloadLen + 6 + nameLen, &ySize, 4);
+								memcpy(data + payloadLen + 10 + nameLen, &square, 4);
+								for (int i = 0; i < 1700; i++) {
+								__int16 bed = 100;
+								memcpy(data + payloadLen + (i * 8) + 14 + nameLen + (8 * 100 * 37), &bed, 2);
+								}
+								for (int i = 0; i < 600; i++) {
+								__int16 bed = 8;
+								memcpy(data + payloadLen + (i*8) + 14 + nameLen + (8*100*54), &bed, 2);
+								}
+								memcpy(data + dataLen-4, &smth, 4);
+								ENetPacket * packet2 = enet_packet_create(data,
+								dataLen,
 								ENET_PACKET_FLAG_RELIABLE);
-							enet_peer_send(peer, 0, packet);
-							//enet_host_flush(server);
-							delete p.data;
-							((PlayerInfo*)(event.peer->data))->netID = cId;
-							onPeerConnect(peer);
-							cId++;
+								enet_peer_send(peer, 0, packet2);
+								enet_host_flush(server);*/
 
-							sendInventory(peer, ((PlayerInfo*)(event.peer->data))->inventory);
+								int x = 3040;
+								int y = 736;
+
+								for (int j = 0; j < info.width*info.height; j++)
+								{
+									if (info.items[j].foreground == 6) {
+										x = (j%info.width) * 32;
+										y = (j / info.width) * 32;
+									}
+								}
+								GamePacket p = packetEnd(appendString(appendString(createPacket(), "OnSpawn"), "spawn|avatar\nnetID|" + std::to_string(cId) + "\nuserID|" + std::to_string(cId) + "\ncolrect|0|0|20|30\nposXY|" + std::to_string(x) + "|" + std::to_string(y) + "\nname|``" + ((PlayerInfo*)(event.peer->data))->displayName + "``\ncountry|" + ((PlayerInfo*)(event.peer->data))->country + "\ninvis|0\nmstate|0\nsmstate|0\ntype|local\n"));
+								//for (int i = 0; i < p.len; i++) cout << (int)*(p.data + i) << " ";
+								ENetPacket * packet = enet_packet_create(p.data,
+									p.len,
+									ENET_PACKET_FLAG_RELIABLE);
+								enet_peer_send(peer, 0, packet);
+								//enet_host_flush(server);
+								delete p.data;
+								((PlayerInfo*)(event.peer->data))->netID = cId;
+								onPeerConnect(peer);
+								cId++;
+
+								sendInventory(peer, ((PlayerInfo*)(event.peer->data))->inventory);
 
 
 
-							/*int resx = 95;
-							int resy = 23;*/
+								/*int resx = 95;
+								int resy = 23;*/
 
-							/*for (int i = 0; i < world.width*world.height; i++)
-							{
-							if (world.items[i].foreground == 6) {
-							resx = i%world.width;
-							resy = i / world.width;
+								/*for (int i = 0; i < world.width*world.height; i++)
+								{
+								if (world.items[i].foreground == 6) {
+								resx = i%world.width;
+								resy = i / world.width;
+								}
+								}
+
+								GamePacket p2 = packetEnd(appendInt(appendString(createPacket(), "SetRespawnPos"), resx + (world.width*resy)));
+								memcpy(p2.data + 8, &(((PlayerInfo*)(event.peer->data))->netID), 4);
+								ENetPacket * packet2 = enet_packet_create(p2.data,
+								p2.len,
+								ENET_PACKET_FLAG_RELIABLE);
+								enet_peer_send(peer, 0, packet);
+								enet_host_flush(server);*/
 							}
-							}
-
-							GamePacket p2 = packetEnd(appendInt(appendString(createPacket(), "SetRespawnPos"), resx + (world.width*resy)));
-							memcpy(p2.data + 8, &(((PlayerInfo*)(event.peer->data))->netID), 4);
-							ENetPacket * packet2 = enet_packet_create(p2.data,
-							p2.len,
-							ENET_PACKET_FLAG_RELIABLE);
-							enet_peer_send(peer, 0, packet);
-							enet_host_flush(server);*/
 						}
 						catch (int e) {
 							if (e == 1) {
@@ -3742,7 +3876,6 @@ label|Download Latest Version
 							sendWorldOffers(peer);
 							// lets take item
 						}
-						cout << data2->packetType << endl;
 						if (data2->packetType == 10)
 						{
 							//cout << pMov->x << ";" << pMov->y << ";" << pMov->plantingTree << ";" << pMov->punchX << ";" << pMov->punchY << ";" << pMov->characterState << endl;
@@ -3753,7 +3886,7 @@ label|Download Latest Version
 							catch (int e) {
 								goto END_CLOTHSETTER_FORCE;
 							}
-							cout << "cloth_setter: " << def.clothType << "," << pMov->plantingTree << endl;
+							
 							switch (def.clothType) {
 							case 0:
 								if (((PlayerInfo*)(event.peer->data))->cloth0 == pMov->plantingTree)
