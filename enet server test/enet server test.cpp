@@ -458,6 +458,11 @@ GamePacket packetEnd(GamePacket p)
 	return p;
 }
 
+struct ItemSharedUID {
+	int actual_uid = 1;
+	int shared_uid = 1;
+};
+
 struct InventoryItem {
 	__int16 itemID;
 	__int8 itemCount;
@@ -544,6 +549,10 @@ struct PlayerInfo {
 	PlayerInventory inventory;
 
 	long long int lastSB = 0;
+
+	//hacky dropped item stuff :(
+	vector<ItemSharedUID> item_uids;
+	int last_uid = 1;
 };
 
 
@@ -590,6 +599,14 @@ struct WorldItem {
 
 };
 
+struct DroppedItem { // TODO
+	int id;
+	int uid;
+	int count;
+	int x;
+	int y;
+};
+
 struct WorldInfo {
 	int width = 100;
 	int height = 60;
@@ -597,6 +614,9 @@ struct WorldInfo {
 	WorldItem* items;
 	string owner = "";
 	bool isPublic=false;
+
+	unsigned long currentItemUID = 1; //has to be 1 by default
+	vector<DroppedItem> droppedItems;
 };
 
 WorldInfo generateWorld(string name, int width, int height)
@@ -1163,14 +1183,6 @@ struct ItemDefinition {
 };
 
 vector<ItemDefinition> itemDefs;
-
-struct DroppedItem { // TODO
-	int id;
-	int uid;
-	int count;
-};
-
-vector<DroppedItem> droppedItems;
 
 ItemDefinition getItemDef(int id)
 {
@@ -2041,46 +2053,45 @@ void loadnews() {
 			if (world->items[x + (y*world->width)].background == 6864 && world->items[x + (y*world->width)].foreground == 0) return;
 			if (world->items[x + (y*world->width)].background == 0 && world->items[x + (y*world->width)].foreground == 0) return;
 			//data.netID = -1;
+			int tool = ((PlayerInfo*)(peer->data))->cloth_hand;
 			data.packetType = 0x8;
-			data.plantingTree = 4;
-			using namespace std::chrono;
+			data.plantingTree = (tool == 98 || tool == 1438 || tool == 4956) ? 8 : 6;
+			int block = world->items[x + (y*world->width)].foreground > 0 ? world->items[x + (y*world->width)].foreground : world->items[x + (y*world->width)].background;
 			//if (world->items[x + (y*world->width)].foreground == 0) return;
+			using namespace std::chrono;
 			if ((duration_cast<milliseconds>(system_clock::now().time_since_epoch())).count() - world->items[x + (y*world->width)].breakTime >= 4000)
 			{
 				world->items[x + (y*world->width)].breakTime = (duration_cast<milliseconds>(system_clock::now().time_since_epoch())).count();
-				world->items[x + (y*world->width)].breakLevel = 4; // TODO
+				world->items[x + (y*world->width)].breakLevel = 0; // TODO
 				if (world->items[x + (y*world->width)].foreground == 758)
 					sendRoulete(peer, x, y);
 			}
-			else
-				if (y < world->height && world->items[x + (y*world->width)].breakLevel + 4 >= def.breakHits * 4) { // TODO
-					data.packetType = 0x3;// 0xC; // 0xF // World::HandlePacketTileChangeRequest
-					data.netID = -1;
-					data.plantingTree = 0;
-					world->items[x + (y*world->width)].breakLevel = 0;
-					if (world->items[x + (y*world->width)].foreground != 0)
+			if (y < world->height)
+			{
+				world->items[x + (y*world->width)].breakTime = (duration_cast<milliseconds>(system_clock::now().time_since_epoch())).count();
+				world->items[x + (y*world->width)].breakLevel += (int)((tool == 98 || tool == 1438 || tool == 4956) ? 8 : 6); // TODO
+			}
+
+
+			if (y < world->height && world->items[x + (y*world->width)].breakLevel >= getItemDef(block).breakHits * 6) { // TODO
+				data.packetType = 0x3;// 0xC; // 0xF // World::HandlePacketTileChangeRequest
+				data.plantingTree = 18;
+				world->items[x + (y*world->width)].breakLevel = 0;
+				if (world->items[x + (y*world->width)].foreground != 0)
+				{
+					if (world->items[x + (y*world->width)].foreground == 242)
 					{
-						if (world->items[x + (y*world->width)].foreground == 242)
-						{
-							world->owner = "";
-							world->isPublic = false;
-						}
-						world->items[x + (y*world->width)].foreground = 0;
+						world->owner = "";
+						world->isPublic = false;
 					}
-					else {
-						data.plantingTree = 6864;
-						world->items[x + (y*world->width)].background = 6864;
-					}
-					
+					world->items[x + (y*world->width)].foreground = 0;
 				}
-				else
-					if (y < world->height)
-					{
-						world->items[x + (y*world->width)].breakTime = (duration_cast<milliseconds>(system_clock::now().time_since_epoch())).count();
-						world->items[x + (y*world->width)].breakLevel += 4; // TODO
-						if (world->items[x + (y*world->width)].foreground == 758)
-							sendRoulete(peer, x, y);
-					}
+				else {
+					world->items[x + (y*world->width)].background = 6864;
+				}
+
+			}
+				
 
 		}
 		else {
@@ -2336,6 +2347,136 @@ void loadnews() {
 		}
 	}
 
+	// droping items WorldObjectMap::HandlePacket
+	void sendDrop(ENetPeer* peer, int netID, int x, int y, int item, int count, BYTE specialEffect, bool onlyForPeer)
+	{
+		if (item >= 7068) return;
+		if (item < 0) return;
+		if (onlyForPeer) {
+			PlayerMoving data;
+			data.packetType = 14;
+			data.x = x;
+			data.y = y;
+			data.netID = netID;
+			data.plantingTree = item;
+			float val = count; // item count
+			BYTE val2 = specialEffect;
+
+			BYTE* raw = packPlayerMoving(&data);
+			memcpy(raw + 16, &val, 4);
+			memcpy(raw + 1, &val2, 1);
+
+			SendPacketRaw(4, raw, 56, 0, peer, ENET_PACKET_FLAG_RELIABLE);
+		}
+		else {
+			DroppedItem dropItem;
+			dropItem.x = x;
+			dropItem.y = y;
+			dropItem.count = count;
+			dropItem.id = item;
+			dropItem.uid = worldDB.get2(((PlayerInfo *)(peer->data))->currentWorld).ptr->currentItemUID++;
+			worldDB.get2(((PlayerInfo *)(peer->data))->currentWorld).ptr->droppedItems.push_back(dropItem);
+			ENetPeer * currentPeer;
+			for (currentPeer = server->peers;
+				currentPeer < &server->peers[server->peerCount];
+				++currentPeer)
+			{
+				if (currentPeer->state != ENET_PEER_STATE_CONNECTED)
+					continue;
+				if (isHere(peer, currentPeer)) {
+
+					ItemSharedUID m_uid;
+					m_uid.actual_uid = dropItem.uid;
+					m_uid.shared_uid = (((PlayerInfo*)(currentPeer->data)))->last_uid++;
+					(((PlayerInfo*)(currentPeer->data)))->item_uids.push_back(m_uid);
+					PlayerMoving data;
+					data.packetType = 14;
+					data.x = x;
+					data.y = y;
+					data.netID = netID;
+					data.plantingTree = item;
+					float val = count; // item count
+					BYTE val2 = specialEffect;
+
+					BYTE* raw = packPlayerMoving(&data);
+					memcpy(raw + 16, &val, 4);
+					memcpy(raw + 1, &val2, 1);
+
+					SendPacketRaw(4, raw, 56, 0, currentPeer, ENET_PACKET_FLAG_RELIABLE);
+				}
+			}
+		}
+	}
+
+
+	//This is only on server. The inventory is automatically updated on the client.
+	void addItemToInventory(ENetPeer * peer, int id) {
+		PlayerInventory inventory = ((PlayerInfo *)(peer->data))->inventory;
+		for (int i = 0; i < inventory.items.size(); i++) {
+			if (inventory.items[i].itemID == id && inventory.items[i].itemCount < 200) {
+				inventory.items[i].itemCount++;
+				return;
+			}
+		}
+		if (inventory.items.size() >= inventory.inventorySize)
+			return;
+		InventoryItem item;
+		item.itemCount = 1;
+		item.itemID = id;
+		inventory.items.push_back(item);
+	}
+
+	int getSharedUID(ENetPeer* peer, int itemNetID) {
+		auto v = ((PlayerInfo*)(peer->data))->item_uids;
+		for (auto t = v.begin(); t != v.end(); ++t) {
+			if (t->actual_uid == itemNetID) {
+				return t->shared_uid;
+			}
+		}
+		return 0;
+	}
+
+	int checkForUIDMatch(ENetPeer * peer, int itemNetID) {
+		auto v = ((PlayerInfo*)(peer->data))->item_uids;
+		for (auto t = v.begin(); t != v.end(); ++t) {
+			if (t->shared_uid == itemNetID) {
+				return t->actual_uid;
+			}
+		}
+		return 0;
+	}
+
+	void sendCollect(ENetPeer* peer, int netID, int itemNetID) {
+		ENetPeer * currentPeer;
+		PlayerMoving data;
+		data.packetType = 14;
+		data.netID = netID;
+		data.plantingTree = itemNetID;
+		data.characterState = 0;
+		cout << "Request collect: " << std::to_string(itemNetID) << endl;
+		WorldInfo *world = getPlyersWorld(peer);
+		for (auto m_item = world->droppedItems.begin(); m_item != world->droppedItems.end(); ++m_item) {
+			if ((checkForUIDMatch(peer, itemNetID)) == m_item->uid) {
+				cout << "Success!" << endl;
+				for (currentPeer = server->peers;
+					currentPeer < &server->peers[server->peerCount];
+					++currentPeer)
+				{
+					if (currentPeer->state != ENET_PEER_STATE_CONNECTED)
+						continue;
+					if (isHere(peer, currentPeer)) {
+						data.plantingTree = getSharedUID(currentPeer, m_item->uid);
+						BYTE* raw = packPlayerMoving(&data);
+						SendPacketRaw(4, raw, 56, 0, currentPeer, ENET_PACKET_FLAG_RELIABLE);
+					}
+				}
+				world->droppedItems.erase(m_item);
+				m_item--;
+				return;
+			}
+		}
+	}
+
 	void sendWorld(ENetPeer* peer, WorldInfo* worldInfo)
 	{
 #ifdef TOTAL_LOG
@@ -2424,8 +2565,17 @@ void loadnews() {
 		if (worldInfo->owner != "") {
 			packet::consolemessage(peer, "`#[`0" + worldInfo->name + " `9World Locked by " + worldInfo->owner + "`#]");
 		}
-		delete data;
-
+		delete[] data;
+		((PlayerInfo*)(peer->data))->item_uids.clear();
+		((PlayerInfo*)(peer->data))->last_uid = 1;
+		for (int i = 0; i < worldInfo->droppedItems.size(); i++) {
+			DroppedItem item = worldInfo->droppedItems[i];
+			sendDrop(peer, -1, item.x, item.y, item.id, item.count, 0, true);
+			ItemSharedUID m_uid;
+			m_uid.actual_uid = item.uid;
+			m_uid.shared_uid = (((PlayerInfo*)(peer->data)))->last_uid++;
+			(((PlayerInfo*)(peer->data)))->item_uids.push_back(m_uid);
+		}
 	}
 
 	void sendAction(ENetPeer* peer, int netID, string action)
@@ -2440,53 +2590,19 @@ void loadnews() {
 			if (currentPeer->state != ENET_PEER_STATE_CONNECTED)
 				continue;
 			if (isHere(peer, currentPeer)) {
-				
+
 				memcpy(p2.data + 8, &netID, 4);
 				ENetPacket * packet2 = enet_packet_create(p2.data,
 					p2.len,
 					ENET_PACKET_FLAG_RELIABLE);
 
 				enet_peer_send(currentPeer, 0, packet2);
-				
+
 				//enet_host_flush(server);
 			}
 		}
 		delete p2.data;
 	}
-
-
-	// droping items WorldObjectMap::HandlePacket
-	void sendDrop(ENetPeer* peer, int netID, int x, int y, int item, int count, BYTE specialEffect)
-	{
-		if (item >= 7068) return;
-		if (item < 0) return;
-		ENetPeer * currentPeer;
-		string name = "";
-		for (currentPeer = server->peers;
-			currentPeer < &server->peers[server->peerCount];
-			++currentPeer)
-		{
-			if (currentPeer->state != ENET_PEER_STATE_CONNECTED)
-				continue;
-			if (isHere(peer, currentPeer)) {
-				PlayerMoving data;
-				data.packetType = 14;
-				data.x = x;
-				data.y = y;
-				data.netID = netID;
-				data.plantingTree = item;
-				float val = count; // item count
-				BYTE val2 = specialEffect;
-
-				BYTE* raw = packPlayerMoving(&data);
-				memcpy(raw + 16, &val, 4);
-				memcpy(raw + 1, &val2, 1);
-
-				SendPacketRaw(4, raw, 56, 0, currentPeer, ENET_PACKET_FLAG_RELIABLE);
-			}
-		}
-	}
-
 	void sendState(ENetPeer* peer) {
 		//return; // TODO
 		PlayerInfo* info = ((PlayerInfo*)(peer->data));
@@ -2999,7 +3115,7 @@ label|Download Latest Version
 				string dropText = "action|drop\n|itemID|";
 				if (cch.find(dropText) == 0)
 				{
-					sendDrop(peer, -1, ((PlayerInfo*)(peer->data))->x + (32 * (((PlayerInfo*)(peer->data))->isRotatedLeft?-1:1)), ((PlayerInfo*)(peer->data))->y, atoi(cch.substr(dropText.length(), cch.length() - dropText.length() - 1).c_str()), 1, 0);
+					sendDrop(peer, -1, ((PlayerInfo*)(peer->data))->x + (32 * (((PlayerInfo*)(peer->data))->isRotatedLeft?-1:1)), ((PlayerInfo*)(peer->data))->y, atoi(cch.substr(dropText.length(), cch.length() - dropText.length() - 1).c_str()), 1, 0, false);
 					/*int itemID = atoi(cch.substr(dropText.length(), cch.length() - dropText.length() - 1).c_str());
 					PlayerMoving data;
 					data.packetType = 14;
@@ -3638,17 +3754,15 @@ label|Download Latest Version
 					} else
 					if (str.substr(0,6) == "/item ")
 					{
-						PlayerInventory inventory;
+						PlayerInventory inventory = ((PlayerInfo *)(peer->data))->inventory;
 						InventoryItem item;
-						item.itemID = atoi(str.substr(6, cch.length() - 6 - 1).c_str());
-						item.itemCount = 200;
-						inventory.items.push_back(item);
-						item.itemCount = 1;
-						item.itemID = 18;
-						inventory.items.push_back(item);
-						item.itemID = 32;
-						inventory.items.push_back(item);
-						sendInventory(peer, inventory);
+						int itemID = atoi(str.substr(6, cch.length() - 6 - 1).c_str());
+						if (itemID != 112 && itemID != 18 && itemID != 32) {
+							item.itemID = itemID;
+							item.itemCount = 200;
+							inventory.items.push_back(item);
+							sendInventory(peer, inventory);
+						}
 					} else
 					if (str.substr(0, 6) == "/team ")
 					{
@@ -4068,9 +4182,7 @@ label|Download Latest Version
 						//cout << data2->packetType << endl;
 						if (data2->packetType == 11)
 						{
-							//cout << pMov->x << ";" << pMov->y << ";" << pMov->plantingTree << ";" << pMov->punchX << endl;
-							//sendDrop(((PlayerInfo*)(event.peer->data))->netID, ((PlayerInfo*)(event.peer->data))->x, ((PlayerInfo*)(event.peer->data))->y, pMov->punchX, 1, 0);
-							// lets take item
+							sendCollect(peer, ((PlayerInfo*)(peer->data))->netID, data2->plantingTree);
 						}
 						if (data2->packetType == 7)
 						{
