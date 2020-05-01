@@ -20,7 +20,7 @@ for:
   - g++ -o "enet server test" "enet server test.cpp" -std=c++11 -L. -lenet -iquote.
   
   artifacts:
-  - path: '**\*'
+  - path: release.zip
     name: GrowtopiaServer-Ubuntu
 -
   matrix:
@@ -28,8 +28,11 @@ for:
       - image: Visual Studio 2015
 
   artifacts:
-  - path: '**\*'
+  - path: release.zip
     name: GrowtopiaServer-Windows
+
+after_build:
+- 7z a release.zip %APPVEYOR_BUILD_FOLDER%
 
 deploy:
 - provider: GitHub
