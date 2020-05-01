@@ -18,3 +18,21 @@ for:
   - cp libenet.a ../libenet.a
   - cd ..
   - g++ -o "enet server test" "enet server test.cpp" -std=c++11 -L. -lenet -iquote.
+  
+  artifacts:
+  - path: .
+    name: GrowtopiaServer-Ubuntu
+-
+  matrix:
+    only:
+      - image: Visual Studio 2015
+
+  artifacts:
+  - path: .
+    name: GrowtopiaServer-Windows
+
+deploy:
+- provider: GitHub
+  description: GrowtopiaServer CI Build
+  auth_token:
+    secure: 5OeKL0BpXE39SdxcoJ6mZH7EcELGBCnKLHavhELhYtQxuVmt9ZnQu5GzsAOh1rM+
