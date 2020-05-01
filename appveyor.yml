@@ -20,7 +20,7 @@ for:
   - g++ -o "enet server test" "enet server test.cpp" -std=c++11 -L. -lenet -iquote.
   
   artifacts:
-  - path: .
+  - path: '**\*'
     name: GrowtopiaServer-Ubuntu
 -
   matrix:
@@ -28,7 +28,7 @@ for:
       - image: Visual Studio 2015
 
   artifacts:
-  - path: .
+  - path: '**\*'
     name: GrowtopiaServer-Windows
 
 deploy:
