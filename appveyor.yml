@@ -37,7 +37,7 @@ for:
       name: GrowtopiaServer-Ubuntu
 
     after_build:
-    - 7z a release_Ubuntu.zip .
+    - 7z a release_Ubuntu.zip $APPVEYOR_BUILD_FOLDER
 
   -
     matrix:
@@ -45,7 +45,6 @@ for:
         - image: macos
 
     build_script:
-    - sudo apt-get install build-essential
     - cd "enet server test"
     - cd "enet2"
     - cmake CMakeLists.txt
@@ -59,7 +58,7 @@ for:
       name: GrowtopiaServer-MacOS
 
     after_build:
-    - 7z a release_MacOS.zip .
+    - 7z a release_MacOS.zip $APPVEYOR_BUILD_FOLDER
 
 
 
