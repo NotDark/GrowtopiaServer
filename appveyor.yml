@@ -2,37 +2,66 @@ version: 1.0.{build}
 image:
 - Visual Studio 2015
 - ubuntu1804
+- macos
 
 for:
--
-  matrix:
-    only:
-      - image: ubuntu1804
+  -
+    matrix:
+      only:
+        - image: Visual Studio 2015
 
-  build_script:
-  - sudo apt-get install build-essential
-  - cd "enet server test"
-  - cd "enet2"
-  - cmake CMakeLists.txt
-  - make
-  - cp libenet.a ../libenet.a
-  - cd ..
-  - g++ -o "enet server test" "enet server test.cpp" -std=c++11 -L. -lenet -iquote.
-  
-  artifacts:
-  - path: release.zip
-    name: GrowtopiaServer-Ubuntu
--
-  matrix:
-    only:
-      - image: Visual Studio 2015
+    artifacts:
+    - path: release_Windows.zip
+      name: GrowtopiaServer-Windows
 
-  artifacts:
-  - path: release.zip
-    name: GrowtopiaServer-Windows
+    after_build:
+    - 7z a release_Windows.zip %APPVEYOR_BUILD_FOLDER%
 
-after_build:
-- 7z a release.zip %APPVEYOR_BUILD_FOLDER%
+  -
+    matrix:
+      only:
+        - image: ubuntu1804
+
+    build_script:
+    - sudo apt-get install build-essential
+    - cd "enet server test"
+    - cd "enet2"
+    - cmake CMakeLists.txt
+    - make
+    - cp libenet.a ../libenet.a
+    - cd ..
+    - g++ -o "enet server test" "enet server test.cpp" -std=c++11 -L. -lenet -iquote.
+
+    artifacts:
+    - path: release_Ubuntu.zip
+      name: GrowtopiaServer-Ubuntu
+
+    after_build:
+    - 7z a release_Ubuntu.zip .
+
+  -
+    matrix:
+      only:
+        - image: macos
+
+    build_script:
+    - sudo apt-get install build-essential
+    - cd "enet server test"
+    - cd "enet2"
+    - cmake CMakeLists.txt
+    - make
+    - cp libenet.a ../libenet.a
+    - cd ..
+    - g++ -o "enet server test" "enet server test.cpp" -std=c++11 -L. -lenet -iquote.
+
+    artifacts:
+    - path: release_MacOS.zip
+      name: GrowtopiaServer-MacOS
+
+    after_build:
+    - 7z a release_MacOS.zip .
+
+
 
 deploy:
 - provider: GitHub
