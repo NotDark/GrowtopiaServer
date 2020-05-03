@@ -101,7 +101,7 @@ ulong _byteswap_ulong(ulong x)
 
 //configs
 int configPort = 17091;
-string configCDN = "0098/CDNContent60/cache/"; 
+string configCDN = "0098/CDNContent61/cache/"; 
 
 
 /***bcrypt***/
